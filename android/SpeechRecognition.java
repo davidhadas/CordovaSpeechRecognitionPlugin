@@ -34,42 +34,65 @@ public class SpeechRecognition extends CordovaPlugin {
   private SpeechRecognizer recognizer;
   private boolean recognizerPresent = false;
   private Handler loopHandler;
+  private Intent intent;
 
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
     this.callbackContext = callbackContext;
 
     if (ACTION_START.equals(action)) {
-      if (!recognizerPresent) {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
-      }
-      
-      startSpeechRecognitionActivity(args);     
-    } else if (ACTION_INIT.equals(action)) {
-      this.recognizerPresent = SpeechRecognizer.isRecognitionAvailable(this.cordova.getActivity().getBaseContext());
-      if (!this.recognizerPresent) {
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
-        return true; // TBD should we return false?
-      }          
-      recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext());
-      loopHandler = new Handler(Looper.getMainLooper());
-      callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
-      
-      loopHandler.post(new Runnable() {
-        @Override
-        public void run() {
-          recognizer.setRecognitionListener(new SpeechRecognitionListner());
-        }              
-      });
-    } else if(ACTION_STOP.equals(action)) {
-      loopHandler.post(new Runnable() {
-        @Override
-        public void run() {
-            recognizer.stopListening();
+        if (!recognizerPresent) {
+            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
+            return true;
         }
-      });
+
+        this.loopHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                recognizer.startListening(this.intent);
+            }
+        });
+
+        PluginResult res = new PluginResult(PluginResult.Status.NO_RESULT);
+        res.setKeepCallback(true);
+        callbackContext.sendPluginResult(res);
+            
+    } else if (ACTION_INIT.equals(action)) {
+        this.recognizerPresent = SpeechRecognizer.isRecognitionAvailable(this.cordova.getActivity().getBaseContext());
+        if (!this.recognizerPresent) {
+            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
+            return true; // TBD should we return false?
+        }          
+        this.recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext());
+        this.loopHandler = new Handler(Looper.getMainLooper());
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
+      
+        this.loopHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                this.recognizer.setRecognitionListener(new SpeechRecognitionListner());
+            }              
+        });
+        String lang = args.optString(1, Locale.getDefault().toString());
+        String maxMatchesStr = args.optString(1, "0");
+        int    maxMatches = Integer.parseInt(temp);
+
+        this.intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);        
+        this.intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        this.intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech.SpeechRecognition");
+        this.intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+        if (maxMatches > 0)
+            this.intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxMatches); 
+
+    } else if(ACTION_STOP.equals(action)) {
+        this.loopHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                this.recognizer.stopListening();
+            }
+        });
     } else {
-      this.callbackContext.error("Unknown action: " + action);
-      return false;
+        this.callbackContext.error("Unknown action: " + action);
+        return false;
     }
     return true;
   }
@@ -128,75 +151,6 @@ public class SpeechRecognition extends CordovaPlugin {
         pr.setKeepCallback(true);
         this.callbackContext.sendPluginResult(pr); 
     }
-
-    private void stopSpeechRecognitionActivity(){
-        Handler loopHandler = new Handler(Looper.getMainLooper());
-        loopHandler.post(new Runnable() {
-
-            @Override
-            public void run() {
-                recognizer.stopListening();
-                // recognizer.cancel();
-            }
-            
-        });
-    }
-
-    /**
-     * Fire an intent to start the speech recognition activity.
-     *
-     * @param args Argument array with the following string args: [req code][number of matches]
-     */
-    private void startSpeechRecognitionActivity(JSONArray args) {
-
-        int maxMatches = 0;
-        String language = Locale.getDefault().toString();
-
-        try {
-            if (args.length() > 0) {
-                // Maximum number of matches, 0 means the recognizer decides
-                String temp = args.getString(0);
-                maxMatches = Integer.parseInt(temp);
-            }
-            if (args.length() > 1) {
-                // Language
-                language = args.getString(1);
-            }
-        }
-        catch (Exception e) {
-            Log.e(TAG, String.format("startSpeechRecognitionActivity exception: %s", e.toString()));
-        }
-
-        // Create the intent and set parameters
-        final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        // intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"voice.recognition.test");
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language);
-
-        if (maxMatches > 0)
-            intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxMatches);
-
-        Handler loopHandler = new Handler(Looper.getMainLooper());
-        loopHandler.post(new Runnable() {
-
-            @Override
-            public void run() {
-                recognizer.startListening(intent);
-            }
-            
-        });
-    }
-    
-    /*
-     *  Get the list of supported languages
-     */
-    private void getSupportedLanguages() {
-    	if (languageDetailsChecker == null){
-    		languageDetailsChecker = new LanguageDetailsChecker(callbackContext);
-    	}
-    	Intent detailsIntent = new Intent(RecognizerIntent.ACTION_GET_LANGUAGE_DETAILS);
-    	cordova.getActivity().sendOrderedBroadcast(detailsIntent, null, languageDetailsChecker, null, Activity.RESULT_OK, null, null);
-	}
 
     class listener implements RecognitionListener          
     {
