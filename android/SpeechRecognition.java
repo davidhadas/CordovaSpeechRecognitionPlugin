@@ -52,10 +52,6 @@ public class SpeechRecognition extends CordovaPlugin {
             }
         });
 
-        PluginResult res = new PluginResult(PluginResult.Status.NO_RESULT);
-        res.setKeepCallback(true);
-        callbackContext.sendPluginResult(res);
-            
     } else if (ACTION_INIT.equals(action)) {
         this.recognizerPresent = SpeechRecognizer.isRecognitionAvailable(this.cordova.getActivity().getBaseContext());
         if (!this.recognizerPresent) {
@@ -152,7 +148,7 @@ public class SpeechRecognition extends CordovaPlugin {
         this.callbackContext.sendPluginResult(pr); 
     }
 
-    class listener implements RecognitionListener          
+    class SpeechRecognitionListner implements RecognitionListener          
     {
         public void onReadyForSpeech(Bundle params)
         {
@@ -168,7 +164,7 @@ public class SpeechRecognition extends CordovaPlugin {
         public void onRmsChanged(float rmsdB)
         {
             // fireEvent("rms changed");
-            Log.d(TAG, "onRmsChanged");
+            //Log.d(TAG, "onRmsChanged");
         }
         public void onBufferReceived(byte[] buffer)
         {
@@ -202,12 +198,12 @@ public class SpeechRecognition extends CordovaPlugin {
         public void onPartialResults(Bundle partialResults)
         {
             fireEvent("partial results");
-             Log.d(TAG, "onPartialResults");
+            Log.d(TAG, "onPartialResults");
         }
         public void onEvent(int eventType, Bundle params)
         {
             fireEvent("event");
-             Log.d(TAG, "onEvent " + eventType);
+            Log.d(TAG, "onEvent " + eventType);
         }
     }
 }
