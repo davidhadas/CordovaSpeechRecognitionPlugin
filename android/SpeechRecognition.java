@@ -30,7 +30,7 @@ public class SpeechRecognition extends CordovaPlugin {
   public static final String ACTION_STOP = "stop";
 
   private CallbackContext callbackContext;
-  private LanguageDetailsChecker languageDetailsChecker;
+  //private LanguageDetailsChecker languageDetailsChecker;
   private SpeechRecognizer recognizer;
   private boolean recognizerPresent = false;
   private Handler loopHandler;
