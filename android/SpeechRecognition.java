@@ -20,6 +20,7 @@ import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import android.content.ComponentName;
 
 
 public class SpeechRecognition extends CordovaPlugin {
@@ -28,6 +29,7 @@ public class SpeechRecognition extends CordovaPlugin {
   public static final String ACTION_INIT = "init";
   public static final String ACTION_START = "start";
   public static final String ACTION_STOP = "stop";
+    
 
   private CallbackContext callbackContext;
   private Handler loopHandler;
@@ -36,6 +38,10 @@ public class SpeechRecognition extends CordovaPlugin {
   private SpeechRecognizer recognizer;
   private boolean recognizerPresent = false;
   private Intent intent;
+  private ComponentName recognizerName = new ComponentName("com.google.android.googlequicksearchbox",
+                                                           "com.google.android.voicesearch.serviceapi.GoogleRecognitionService");
+                                //'com.google.android.voicesearch';    
+                                //"com.google.android.googlequicksearchbox/com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
 
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
     this.callbackContext = callbackContext;
@@ -65,7 +71,7 @@ public class SpeechRecognition extends CordovaPlugin {
         loopHandler.post(new Runnable() {
             @Override
             public void run() {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext());
+                recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext(),recognizerName);
                 recognizer.setRecognitionListener(new SpeechRecognitionListner());
             }              
         });
@@ -74,8 +80,8 @@ public class SpeechRecognition extends CordovaPlugin {
         String lang = args.optString(1, Locale.getDefault().toString());
         int maxRes = Integer.parseInt(maxResStr);
         intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH); 
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech.SpeechRecognition");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH); //RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech   ");
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxRes); 
         

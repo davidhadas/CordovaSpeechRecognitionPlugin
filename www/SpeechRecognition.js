@@ -1,6 +1,4 @@
-var exec = require("cordova/exec"); // REMOVE
-
-var SpeechRecognition = function () {
+module.exports = function () {
     
     this.init = function(success, error, maxMatches, language) {
         //console.log('SpeechRecognitionPlugin: init');
@@ -20,4 +18,3 @@ var SpeechRecognition = function () {
     };
 }
 
-module.exports = SpeechRecognition;
