@@ -1,14 +1,23 @@
+var exec = require("cordova/exec"); // REMOVE
 
-function SpeechRecognition() {
+var SpeechRecognition = function () {
+    
     this.init = function(success, error, maxMatches, language) {
+        //console.log('SpeechRecognitionPlugin: init');
+        this.success = success;
+        this.error = error;
         return cordova.exec(success, error, "SpeechRecognition", "init", [maxMatches, language]);
     };
 
-    this.start = function(success, error) {
-        return cordova.exec(success, error, "SpeechRecognition", "start");
+    this.start = function() {
+        //console.log('SpeechRecognitionPlugin: start');
+        return cordova.exec(this.success, this.error, "SpeechRecognition", "start", []);
     };
 
-    this.stop = function(success, error, maxMatches, language) {
-        return cordova.exec(success, error, "SpeechRecognition", "stop");
+    this.stop = function() {
+        //console.log('SpeechRecognitionPlugin: stop');
+        return cordova.exec(this.success, this.error, "SpeechRecognition", "stop", []);
     };
 }
+
+module.exports = SpeechRecognition;

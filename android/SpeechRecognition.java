@@ -24,16 +24,17 @@ import android.speech.SpeechRecognizer;
 
 public class SpeechRecognition extends CordovaPlugin {
 
-  private static final String TAG = XSpeechRecognizer.class.getSimpleName();
+  private static final String TAG = SpeechRecognition.class.getSimpleName();
   public static final String ACTION_INIT = "init";
   public static final String ACTION_START = "start";
   public static final String ACTION_STOP = "stop";
 
   private CallbackContext callbackContext;
+  private Handler loopHandler;
+  public static final String NOT_PRESENT_MESSAGE = "Speech recognition is not present or enabled";
   //private LanguageDetailsChecker languageDetailsChecker;
   private SpeechRecognizer recognizer;
   private boolean recognizerPresent = false;
-  private Handler loopHandler;
   private Intent intent;
 
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
@@ -44,50 +45,49 @@ public class SpeechRecognition extends CordovaPlugin {
             callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
             return true;
         }
-
-        this.loopHandler.post(new Runnable() {
+        loopHandler = new Handler(Looper.getMainLooper());
+        loopHandler.post(new Runnable() {
             @Override
             public void run() {
-                recognizer.startListening(this.intent);
+                recognizer.startListening(intent);
             }
         });
 
     } else if (ACTION_INIT.equals(action)) {
-        this.recognizerPresent = SpeechRecognizer.isRecognitionAvailable(this.cordova.getActivity().getBaseContext());
-        if (!this.recognizerPresent) {
+        recognizerPresent = SpeechRecognizer.isRecognitionAvailable(cordova.getActivity().getBaseContext());
+        if (!recognizerPresent) {
             callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
             return true; // TBD should we return false?
         }          
-        this.recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext());
-        this.loopHandler = new Handler(Looper.getMainLooper());
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
       
-        this.loopHandler.post(new Runnable() {
+        loopHandler = new Handler(Looper.getMainLooper());
+        loopHandler.post(new Runnable() {
             @Override
             public void run() {
-                this.recognizer.setRecognitionListener(new SpeechRecognitionListner());
+                recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext());
+                recognizer.setRecognitionListener(new SpeechRecognitionListner());
             }              
         });
+        
+        String maxResStr = args.optString(0, "1");
         String lang = args.optString(1, Locale.getDefault().toString());
-        String maxMatchesStr = args.optString(1, "0");
-        int    maxMatches = Integer.parseInt(temp);
-
-        this.intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);        
-        this.intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        this.intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech.SpeechRecognition");
-        this.intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
-        if (maxMatches > 0)
-            this.intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxMatches); 
-
+        int maxRes = Integer.parseInt(maxResStr);
+        intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH); 
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech.SpeechRecognition");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
+        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxRes); 
+        
     } else if(ACTION_STOP.equals(action)) {
-        this.loopHandler.post(new Runnable() {
+        loopHandler.post(new Runnable() {
             @Override
             public void run() {
-                this.recognizer.stopListening();
+                recognizer.stopListening();
             }
         });
     } else {
-        this.callbackContext.error("Unknown action: " + action);
+        callbackContext.error("Unknown action: " + action);
         return false;
     }
     return true;
@@ -117,7 +117,7 @@ public class SpeechRecognition extends CordovaPlugin {
         }
         PluginResult pr = new PluginResult(PluginResult.Status.OK, event);
         pr.setKeepCallback(true);
-        this.callbackContext.sendPluginResult(pr); 
+        callbackContext.sendPluginResult(pr); 
     }
 
     private void fireErrorEvent(Integer code){
@@ -131,7 +131,7 @@ public class SpeechRecognition extends CordovaPlugin {
 
         PluginResult pr = new PluginResult(PluginResult.Status.ERROR, event);
         pr.setKeepCallback(false);
-        this.callbackContext.sendPluginResult(pr); 
+        callbackContext.sendPluginResult(pr); 
     }
 
     private void fireEvent(String type) {
@@ -145,7 +145,7 @@ public class SpeechRecognition extends CordovaPlugin {
         // PluginResult pr = new PluginResult(PluginResult.Status.OK, "event");
         PluginResult pr = new PluginResult(PluginResult.Status.OK, event);
         pr.setKeepCallback(true);
-        this.callbackContext.sendPluginResult(pr); 
+        callbackContext.sendPluginResult(pr); 
     }
 
     class SpeechRecognitionListner implements RecognitionListener          
@@ -163,13 +163,13 @@ public class SpeechRecognition extends CordovaPlugin {
         /* RMV Voltage */
         public void onRmsChanged(float rmsdB)
         {
-            // fireEvent("rms changed");
+            //fireEvent("rms changed");
             //Log.d(TAG, "onRmsChanged");
         }
         public void onBufferReceived(byte[] buffer)
         {
-            fireEvent("buffer received");
-            Log.d(TAG, "onBufferReceived");
+            //fireEvent("buffer received");
+            //Log.d(TAG, "onBufferReceived");
         }
         public void onEndOfSpeech()
         {
@@ -197,12 +197,12 @@ public class SpeechRecognition extends CordovaPlugin {
         }
         public void onPartialResults(Bundle partialResults)
         {
-            fireEvent("partial results");
-            Log.d(TAG, "onPartialResults");
+            //fireEvent("partial results");
+            //Log.d(TAG, "onPartialResults");
         }
         public void onEvent(int eventType, Bundle params)
         {
-            fireEvent("event");
+            //fireEvent("event");
             Log.d(TAG, "onEvent " + eventType);
         }
     }
