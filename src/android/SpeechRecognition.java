@@ -1,7 +1,8 @@
-package org.apache.cordova.speech;
+package com.zLineup.cordova.plugin.speech;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -12,6 +13,7 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PluginResult;
 import org.apache.cordova.LOG;
 
+import android.content.Context;
 import android.util.Log;
 import android.content.Intent;
 import android.os.Bundle;
@@ -21,14 +23,27 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.content.ComponentName;
+import android.content.pm.ResolveInfo;
+import android.content.pm.ServiceInfo;
+import android.speech.RecognitionService;
+
 
 
 public class SpeechRecognition extends CordovaPlugin {
 
   private static final String TAG = SpeechRecognition.class.getSimpleName();
   public static final String ACTION_INIT = "init";
+  public static final String ACTION_CONF = "config";
   public static final String ACTION_START = "start";
   public static final String ACTION_STOP = "stop";
+  public static final String ACTION_CANCEL = "cancel";
+
+  public static final int ERR_NO_RECOGNIZER = -1;
+  public static final int ERR_RECOGNIZER_UNTESTED = -2;
+  public static final int ERR_NOT_STARTED = -3;
+  public static final int ERR_FAIL_START = -4;
+    
+
     
 
   private CallbackContext callbackContext;
@@ -38,68 +53,130 @@ public class SpeechRecognition extends CordovaPlugin {
   private SpeechRecognizer recognizer;
   private boolean recognizerPresent = false;
   private Intent intent;
-  private ComponentName recognizerName = new ComponentName("com.google.android.googlequicksearchbox",
-                                                           "com.google.android.voicesearch.serviceapi.GoogleRecognitionService");
-                                //'com.google.android.voicesearch';    
-                                //"com.google.android.googlequicksearchbox/com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+  private Context myContext;
+  private ComponentName recognizerName;
+            //Pkg:  "com.google.android.googlequicksearchbox",
+            //Name: "com.google.android.voicesearch.serviceapi.GoogleRecognitionService");
 
+  // Android OS Implementation of recognizer class can be found at: 
+  // https://code.google.com/p/pdroid/source/browse/trunk/frameworks/base/core/java/android/speech/SpeechRecognizer.java?r=20    
+  //
   public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
     this.callbackContext = callbackContext;
 
     if (ACTION_START.equals(action)) {
+        Log.d(TAG,"SpeechRecognition ACTION_START ");
         if (!recognizerPresent) {
-            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
+            fireErrorEvent(ERR_NOT_STARTED);    
             return true;
         }
-        loopHandler = new Handler(Looper.getMainLooper());
+
         loopHandler.post(new Runnable() {
             @Override
             public void run() {
                 recognizer.startListening(intent);
             }
         });
-
     } else if (ACTION_INIT.equals(action)) {
-        recognizerPresent = SpeechRecognizer.isRecognitionAvailable(cordova.getActivity().getBaseContext());
+        // Note that we are not running in main loop 
+        // Log.d(TAG, "SpeechRecognition same: " + (Looper.myLooper() == Looper.getMainLooper()));
+        
+        Log.d(TAG,"SpeechRecognition ACTION_INIT ");
+        if (recognizerPresent) return true; //oneshot
+        myContext = cordova.getActivity().getApplicationContext(); // use to be getBaseContext();
+        recognizerPresent = SpeechRecognizer.isRecognitionAvailable(myContext);
         if (!recognizerPresent) {
-            callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, NOT_PRESENT_MESSAGE));
-            return true; // TBD should we return false?
+            fireErrorEvent(ERR_FAIL_START);    
+            return true;
         }          
-        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK));
-      
+        recognizerName = pickRecognizer("com.google.android");
+        fireEvent("initialized");
+    
         loopHandler = new Handler(Looper.getMainLooper());
         loopHandler.post(new Runnable() {
             @Override
             public void run() {
-                recognizer = SpeechRecognizer.createSpeechRecognizer(cordova.getActivity().getBaseContext(),recognizerName);
+                if  (recognizerName == null) recognizer = SpeechRecognizer.createSpeechRecognizer(myContext);
+                else recognizer = SpeechRecognizer.createSpeechRecognizer(myContext,recognizerName);
                 recognizer.setRecognitionListener(new SpeechRecognitionListner());
             }              
         });
+    } else if (ACTION_CONF.equals(action)) {
+        Log.d(TAG,"SpeechRecognition ACTION_CONF ");
+        if (!recognizerPresent) {
+            fireErrorEvent(ERR_NOT_STARTED);    
+            return true;
+        }
+        // FIXME - cleanup recognizer et al if already initialized
         
         String maxResStr = args.optString(0, "1");
         String lang = args.optString(1, Locale.getDefault().toString());
         int maxRes = Integer.parseInt(maxResStr);
+        
         intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH); 
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH); //RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"org.apache.cordova.speech   ");
+        intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE,"com.zLineup.cordova.plugin.speech"); 
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, maxRes); 
-        
     } else if(ACTION_STOP.equals(action)) {
+        Log.d(TAG,"SpeechRecognition ACTION_STOP ");
+        if (!recognizerPresent) {
+            fireErrorEvent(ERR_NOT_STARTED);    
+            return true;
+        }
         loopHandler.post(new Runnable() {
             @Override
             public void run() {
                 recognizer.stopListening();
             }
         });
+    } else if(ACTION_CANCEL.equals(action)) {
+        Log.d(TAG,"SpeechRecognition ACTION_CANCEL ");
+        if (!recognizerPresent) {
+            fireErrorEvent(ERR_NOT_STARTED);    
+            return true;
+        }
+        loopHandler.post(new Runnable() {
+            @Override
+            public void run() { 
+                recognizer.cancel();
+            }
+        });
     } else {
-        callbackContext.error("Unknown action: " + action);
+        Log.d(TAG,"SpeechRecognition unknown action... ");
+        callbackContext.error("SpeechRecognition Unknown action: " + action);
         return false;
     }
     return true;
   }
 
-    private void fireRecognitionEvent(ArrayList<String> transcripts, float[] confidences) {
+  private ComponentName pickRecognizer(String prefix){
+     List<ResolveInfo> recognizers=myContext.getPackageManager().queryIntentServices(new Intent(RecognitionService.SERVICE_INTERFACE),0);
+     int numRecognizers = recognizers.size();
+     ServiceInfo serviceInfo;
+     
+      if (numRecognizers == 0) {
+        Log.e(TAG,"SpeechRecognition recognizer not found!");
+        fireErrorEvent(ERR_NO_RECOGNIZER);    
+        return null;
+     }
+     else {
+        Log.d(TAG,"SpeechRecognition recognizers found: "+numRecognizers);
+        for (int i=0; i < numRecognizers; i++) {
+            serviceInfo=recognizers.get(i).serviceInfo;
+            Log.d(TAG, "SpeechRecognition avaliable - Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
+            if (serviceInfo.packageName.startsWith(prefix)) {
+                Log.i(TAG, "SpeechRecognition picked recognizer -  Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
+                return new ComponentName(serviceInfo.packageName,serviceInfo.name);
+            }
+        }
+        Log.w(TAG, "No tested recognizers found");              
+        fireErrorEvent(ERR_RECOGNIZER_UNTESTED);    
+        return null;
+    }
+  }
+
+  private void fireRecognitionEvent(ArrayList<String> transcripts, float[] confidences) {
         JSONObject event = new JSONObject();
         JSONArray results = new JSONArray();
         try {
@@ -115,8 +192,6 @@ public class SpeechRecognition extends CordovaPlugin {
                 results.put(alternatives);
             }
             event.put("type", "result");
-            // event.put("emma", null);
-            // event.put("interpretation", null);
             event.put("results", results);
         } catch (JSONException e) {
             // this will never happen
@@ -136,7 +211,7 @@ public class SpeechRecognition extends CordovaPlugin {
         }
 
         PluginResult pr = new PluginResult(PluginResult.Status.ERROR, event);
-        pr.setKeepCallback(false);
+        pr.setKeepCallback(true);
         callbackContext.sendPluginResult(pr); 
     }
 
@@ -150,7 +225,7 @@ public class SpeechRecognition extends CordovaPlugin {
         }
         // PluginResult pr = new PluginResult(PluginResult.Status.OK, "event");
         PluginResult pr = new PluginResult(PluginResult.Status.OK, event);
-        pr.setKeepCallback(true);
+        pr.setKeepCallback(true); // FIXME - false
         callbackContext.sendPluginResult(pr); 
     }
 
@@ -158,13 +233,13 @@ public class SpeechRecognition extends CordovaPlugin {
     {
         public void onReadyForSpeech(Bundle params)
         {
+            Log.d(TAG, "SpeechRecognition onReadyForSpeech");
             fireEvent("ready");
-            Log.d(TAG, "onReadyForSpeech");
         }
         public void onBeginningOfSpeech()
         {
+            Log.d(TAG, "SpeechRecognition onBeginningOfSpeech");
             fireEvent("start");
-            Log.d(TAG, "onBeginningOfSpeech");
         }
         /* RMV Voltage */
         public void onRmsChanged(float rmsdB)
@@ -179,25 +254,25 @@ public class SpeechRecognition extends CordovaPlugin {
         }
         public void onEndOfSpeech()
         {
+            Log.d(TAG, "SpeechRecognition onEndofSpeech");
             fireEvent("end");
-            Log.d(TAG, "onEndofSpeech");
         }
         public void onError(int error)
         {
+            Log.d(TAG,  "SpeechRecognition onError " +  error);
             fireErrorEvent(error);
-            Log.d(TAG,  "error " +  error);
         }
         public void onResults(Bundle results)                   
         {
+            Log.d(TAG, "SpeechRecognition onResults " + results);
             String str = new String();
-            Log.d(TAG, "onResults " + results);
             ArrayList<String> transcript = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
             float[] confidence = results.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES);
             if (transcript.size() > 0) {
-                Log.d(TAG, "fire recognition event");
+                Log.d(TAG, "SpeechRecognition fire recognition event");
                 fireRecognitionEvent(transcript, confidence);
             } else {
-                Log.d(TAG, "fire no match event");
+                Log.d(TAG, "SpeechRecognition fire no match event");
                 fireEvent("nomatch");
             }  
         }
@@ -208,8 +283,8 @@ public class SpeechRecognition extends CordovaPlugin {
         }
         public void onEvent(int eventType, Bundle params)
         {
+            Log.d(TAG, "SpeechRecognition onEvent " + eventType);
             //fireEvent("event");
-            Log.d(TAG, "onEvent " + eventType);
         }
     }
 }

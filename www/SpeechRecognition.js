@@ -1,20 +1,31 @@
-module.exports = function () {
+module.exports = {
     
-    this.init = function(success, error, maxMatches, language) {
-        //console.log('SpeechRecognitionPlugin: init');
+    init: function(success, error) {
         this.success = success;
         this.error = error;
-        return cordova.exec(success, error, "SpeechRecognition", "init", [maxMatches, language]);
-    };
+        
+        console.log('SpeechRecognitionPlugin: init');
+        cordova.exec(success, error, "SpeechRecognition", "init", []);
+    },
 
-    this.start = function() {
-        //console.log('SpeechRecognitionPlugin: start');
-        return cordova.exec(this.success, this.error, "SpeechRecognition", "start", []);
-    };
+    config: function(maxMatches, language) {
+        console.log('SpeechRecognitionPlugin: config');
+        cordova.exec(this.success, this.error, "SpeechRecognition", "config", [maxMatches, language]);
+    },
 
-    this.stop = function() {
-        //console.log('SpeechRecognitionPlugin: stop');
-        return cordova.exec(this.success, this.error, "SpeechRecognition", "stop", []);
-    };
+    start: function() {
+        console.log('SpeechRecognitionPlugin: start');
+        cordova.exec(this.success, this.error, "SpeechRecognition", "start", []);
+    },
+
+    stop: function() {
+        console.log('SpeechRecognitionPlugin: stop');
+        cordova.exec(this.success, this.error, "SpeechRecognition", "stop", []);
+    },
+        
+    cancel: function() {
+        console.log('SpeechRecognitionPlugin: cancel');
+        cordova.exec(this.success, this.error, "SpeechRecognition", "cancel", []);
+    }
 }
 
