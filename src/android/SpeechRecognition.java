@@ -82,13 +82,18 @@ public class SpeechRecognition extends CordovaPlugin {
         // Log.d(TAG, "SpeechRecognition same: " + (Looper.myLooper() == Looper.getMainLooper()));
         
         Log.d(TAG,"SpeechRecognition ACTION_INIT ");
-        if (recognizerPresent) return true; //oneshot
+        if (recognizerPresent) {
+            Log.d(TAG,"SpeechRecognition ACTION_INIT recognizerPresent ");
+            return true; //oneshot
+        }
         myContext = cordova.getActivity().getApplicationContext(); // use to be getBaseContext();
         recognizerPresent = SpeechRecognizer.isRecognitionAvailable(myContext);
         if (!recognizerPresent) {
+            Log.d(TAG,"SpeechRecognition ACTION_INIT ERR_FAIL_START ");
             fireErrorEvent(ERR_FAIL_START);    
             return true;
         }          
+        Log.d(TAG,"SpeechRecognition ACTION_INIT pickRecognizer");
         recognizerName = pickRecognizer("com.google.android");
         fireEvent("initialized");
     
@@ -156,22 +161,22 @@ public class SpeechRecognition extends CordovaPlugin {
      ServiceInfo serviceInfo;
      
       if (numRecognizers == 0) {
-        Log.e(TAG,"SpeechRecognition recognizer not found!");
+        Log.e(TAG,"SpeechRecognition pickRecognizer recognizer not found!");
         fireErrorEvent(ERR_NO_RECOGNIZER);    
         return null;
      }
      else {
-        Log.d(TAG,"SpeechRecognition recognizers found: "+numRecognizers);
+        Log.d(TAG,"SpeechRecognition pickRecognizer recognizers found: "+numRecognizers);
         for (int i=0; i < numRecognizers; i++) {
             serviceInfo=recognizers.get(i).serviceInfo;
-            Log.d(TAG, "SpeechRecognition avaliable - Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
+            Log.d(TAG, "SpeechRecognition pickRecognizer avaliable - Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
             if (serviceInfo.packageName.startsWith(prefix)) {
-                Log.i(TAG, "SpeechRecognition picked recognizer -  Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
+                Log.i(TAG, "SpeechRecognition pickRecognizer picked recognizer -  Pkg: "+serviceInfo.packageName+", Name: "+serviceInfo.name);  
                 return new ComponentName(serviceInfo.packageName,serviceInfo.name);
             }
         }
-        Log.w(TAG, "No tested recognizers found");              
-        fireErrorEvent(ERR_RECOGNIZER_UNTESTED);    
+        Log.w(TAG, "SpeechRecognition pickRecognizer No tested recognizers found");              
+        fireErrorEvent(ERR_RECOGNIZER_UNTESTED);
         return null;
     }
   }
